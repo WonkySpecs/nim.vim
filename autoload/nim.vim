@@ -191,28 +191,31 @@ fun! NimAsyncCmdComplete(cmd, output) abort
   return 1
 endf
 
-fun! GotoDefinition_nim_ready(def_output) abort
+fun! GotoDefinition_nim_ready(find_output) abort
   if v:shell_error
     echo 'nim was unable to locate the definition. exit code: ' . v:shell_error
-    " echoerr a:def_output
+    " echoerr a:find_output
     return 0
   endif
   
-  let rawDef = matchstr(a:def_output, 'def\t\([^\n]*\)')
-  if rawDef == ''
+  if a:find_output == ''
     echo 'the current cursor position does not match any definitions'
     return 0
   endif
   
-  let defBits = split(rawDef, '\t')
-  let file = defBits[4]
-  let line = defBits[5]
+  let defBits = split(a:find_output, ':')
+  let file = defBits[0]
+  let line = defBits[1]
   exe printf('e +%d %s', line, file)
   return 1
 endf
 
 fun! GotoDefinition_nim() abort
-  call NimExecAsync('--def', function('GotoDefinition_nim_ready'))
+  let cmd = printf('nimfind --hints:off --project:%s "%s:%d:%d"',
+    \ b:nim_project_root, s:CurrentNimFile(), line('.'), col('.'))
+  let l:output = system(cmd)
+  call add(g:nim_log, cmd . "\n" . l:output)
+  call GotoDefinition_nim_ready(l:output)
 endf
 
 fun! FindReferences_nim() abort
